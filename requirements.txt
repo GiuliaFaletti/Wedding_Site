@@ -1,0 +1,9 @@
+streamlit
+supabase
+pandas
+plotly
+qrcode
+Pillow
+bcrypt
+python-dotenv
+bcrypt
