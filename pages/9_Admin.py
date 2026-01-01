@@ -176,8 +176,9 @@ with tab3:
     img = qrcode.make(url)
     buf = BytesIO()
     img.save(buf, format="PNG")
+    buf.seek(0)
 
-    st.image(img, width=220)
+    st.image(buf.getvalue(), width=220)
     st.download_button(
         "⬇️ Scarica QR PNG",
         data=buf.getvalue(),
