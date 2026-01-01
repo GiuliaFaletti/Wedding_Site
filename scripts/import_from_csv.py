@@ -3,6 +3,8 @@ import csv
 import secrets
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 import qrcode
 from supabase import create_client
 
@@ -36,6 +38,9 @@ def parse_bool(x: str) -> bool:
     return str(x).strip().lower() in ["true", "1", "yes", "y"]
 
 def main(csv_path: str):
+    # Carica variabili da .env se presente (fallback comodo)
+    load_dotenv()
+
     url = os.environ["SUPABASE_URL"]
     key = os.environ["SUPABASE_SERVICE_KEY"]
     base_url = os.environ.get("BASE_URL", "http://localhost:8501")
