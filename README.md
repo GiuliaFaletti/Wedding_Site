@@ -81,4 +81,5 @@ python scripts/make_admin_hash.py
 - `pages/`: Home, Dettagli/FAQ, RSVP, Admin dashboard.
 - `components/`: client Supabase, utilità (normalizzazione codice), login admin.
 - `scripts/`: import CSV + QR, generazione hash admin, seed demo placeholder.
+- `scripts/generate_admin_qr.py`: genera link/QR per la pagina Admin includendo l'eventuale token.
 - `data/`: CSV template inviti.

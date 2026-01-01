@@ -9,6 +9,16 @@ from components.security import admin_login_ok
 
 st.title("🔒 Admin – RSVP Dashboard")
 
+# Protezione extra: token via query param (opzionale)
+page_token = st.secrets.get("ADMIN_PAGE_TOKEN")
+qp = st.query_params
+if page_token:
+    token = qp.get("token", "")
+    if isinstance(token, list):
+        token = token[0] if token else ""
+    if token != page_token:
+        st.stop()
+
 if not admin_login_ok():
     st.info("Inserisci la password admin nella sidebar.")
     st.stop()
