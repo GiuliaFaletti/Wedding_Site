@@ -102,6 +102,28 @@ meal_label_to_code = {m["label"]: m["code"] for m in meal_opts}
 meal_code_to_label = {m["code"]: m["label"] for m in meal_opts}
 meal_labels = list(meal_label_to_code.keys()) if meal_label_to_code else ["Menù unico"]
 
+
+def render_summary():
+    """Riepilogo presenze/menù in formato tabellare."""
+    rows = []
+    for g in guests:
+        prev = rsvps_by_guest.get(g["id"], {})
+        att = prev.get("attending")
+        att_txt = "In attesa" if att is None else ("Sì" if att else "No")
+        meal_txt = meal_code_to_label.get(prev.get("meal_choice"), "") if att is True else ""
+
+        rows.append({
+            "Nome": g["full_name"],
+            "Presenza": att_txt,
+            "Menù": meal_txt,
+            "Allergie": prev.get("allergies") or "",
+            "Note": prev.get("notes") or ""
+        })
+
+    st.subheader("Riepilogo")
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.info("Vuoi modificare? Torna su **Conferma**, cambia e premi **Salva**.")
+
 # -----------------------------
 # 5) Azioni rapide (UX nuclei)
 # -----------------------------
@@ -243,7 +265,7 @@ with tab1:
             st.rerun()
 
     with c2:
-        if st.button("Salva e vai al riepilogo"):
+        if st.button("Salva e mostra il riepilogo"):
             for row in updated_rows:
                 supabase.table("rsvps").upsert(row, on_conflict="guest_id").execute()
             st.success("Salvato ✅")
@@ -256,26 +278,12 @@ with tab1:
             reload_bundle()
             st.info("Dati ricaricati.")
 
-with tab2:
+    # Mostra subito il riepilogo dopo l'azione "Salva e vai al riepilogo"
     if st.session_state.get("go_summary"):
         st.session_state.go_summary = False
+        st.divider()
+        st.success("Ecco il riepilogo aggiornato ✅")
+        render_summary()
 
-    # Costruisco riepilogo leggibile (menù in label, non in code)
-    rows = []
-    for g in guests:
-        prev = rsvps_by_guest.get(g["id"], {})
-        att = prev.get("attending")
-        att_txt = "In attesa" if att is None else ("Sì" if att else "No")
-        meal_txt = meal_code_to_label.get(prev.get("meal_choice"), "") if att is True else ""
-
-        rows.append({
-            "Nome": g["full_name"],
-            "Presenza": att_txt,
-            "Menù": meal_txt,
-            "Allergie": prev.get("allergies") or "",
-            "Note": prev.get("notes") or ""
-        })
-
-    st.subheader("Riepilogo")
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
-    st.info("Vuoi modificare? Torna su **Conferma**, cambia e premi **Salva**.")
+with tab2:
+    render_summary()
