@@ -1,10 +1,10 @@
 streamlit
-supabase
 pandas
 plotly
 qrcode
 Pillow
 bcrypt
 python-dotenv
-bcrypt
 watchdog
+gspread
+google-auth

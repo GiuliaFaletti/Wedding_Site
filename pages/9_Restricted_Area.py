@@ -4,7 +4,7 @@ import plotly.express as px
 import qrcode
 from io import BytesIO
 
-from components.supabase_client import get_supabase
+from components import data_store
 from components.security import admin_login_ok
 
 st.title("🔒 Restricted Area")
@@ -13,28 +13,19 @@ if not admin_login_ok():
     st.info("Inserisci la password admin nella sidebar.")
     st.stop()
 
-supabase = get_supabase()
-
-@st.cache_data(ttl=30)
-def load_all():
-    """
-    Carica tutte le tabelle principali con cache breve.
-    """
-    invites = supabase.table("invites").select("*").execute().data or []
-    guests  = supabase.table("guests").select("*").execute().data or []
-    rsvps   = supabase.table("rsvps").select("*").execute().data or []
-    meals   = supabase.table("meal_options").select("*").execute().data or []
-    return invites, guests, rsvps, meals
-
 if st.sidebar.button("🔄 Refresh dati"):
-    st.cache_data.clear()
+    data_store.refresh_cache()
 
-invites, guests, rsvps, meals = load_all()
+invites, guests, rsvps, meals = data_store.load_all_data()
 
 df_inv = pd.DataFrame(invites)
 df_g   = pd.DataFrame(guests)
 df_r   = pd.DataFrame(rsvps)
 df_m   = pd.DataFrame(meals)
+
+for col in ["created_at", "updated_at"]:
+    if col not in df_inv.columns:
+        df_inv[col] = ""
 
 if df_inv.empty:
     st.warning("Nessun invito nel DB. Importa da CSV o usa seed_demo.")
@@ -148,14 +139,18 @@ with tab3:
     if st.button("💾 Salva modifiche inviti"):
         # Aggiorno riga per riga (semplice e robusto)
         for _, row in edited.iterrows():
-            supabase.table("invites").update({
+            data_store.update_invite({
+                "id": row["id"],
+                "code": row["code"],
                 "label": row["label"],
                 "max_guests": int(row["max_guests"]),
-                "allow_plus_one": bool(row["allow_plus_one"])
-            }).eq("id", row["id"]).execute()
+                "allow_plus_one": bool(row["allow_plus_one"]),
+                "created_at": row.get("created_at", ""),
+                "updated_at": row.get("updated_at", ""),
+            })
 
+        data_store.refresh_cache()
         st.success("Inviti aggiornati ✅ (premi Refresh dati in sidebar)")
-        st.cache_data.clear()
 
     st.divider()
     st.subheader("Link RSVP + QR")

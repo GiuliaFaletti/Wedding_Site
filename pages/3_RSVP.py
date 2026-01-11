@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-from components.supabase_client import get_supabase
+from components import data_store
 from components.utils import normalize_code
 
 st.title("✅ RSVP – Conferma presenza")
-
-supabase = get_supabase()
 
 # -----------------------------
 # 1) Leggo il code dall'URL (QR)
@@ -39,23 +37,13 @@ def fetch_invite_bundle(invite_code: str):
 
     Ritorna (inv, guests, rsvps_by_guest).
     """
-    inv_res = supabase.table("invites").select("*").eq("code", invite_code).limit(1).execute()
-    inv_list = inv_res.data or []
-    if not inv_list:
+    invites, guests_all, rsvps_all, _ = data_store.load_all_data()
+    inv = next((i for i in invites if i["code"] == invite_code), None)
+    if not inv:
         return None, [], {}
 
-    inv = inv_list[0]
-
-    g_res = supabase.table("guests").select("id, full_name, is_child").eq("invite_id", inv["id"]).execute()
-    guests = g_res.data or []
-
-    rsvps = []
-    if guests:
-        ids = [g["id"] for g in guests]
-        r_res = supabase.table("rsvps").select("*").in_("guest_id", ids).execute()
-        rsvps = r_res.data or []
-
-    rsvps_by_guest = {r["guest_id"]: r for r in rsvps}
+    guests = [g for g in guests_all if g["invite_id"] == inv["id"]]
+    rsvps_by_guest = {r["guest_id"]: r for r in rsvps_all if r["guest_id"] in {g["id"] for g in guests}}
     return inv, guests, rsvps_by_guest
 
 def reload_bundle():
@@ -97,7 +85,7 @@ st.caption("Puoi salvare ora e modificare più tardi riaprendo lo stesso link/QR
 # -----------------------------
 # 4) Carico opzioni menù
 # -----------------------------
-meal_opts = supabase.table("meal_options").select("*").eq("active", True).execute().data or []
+meal_opts = [m for m in data_store.load_meal_options() if m.get("active")]
 meal_label_to_code = {m["label"]: m["code"] for m in meal_opts}
 meal_code_to_label = {m["code"]: m["label"] for m in meal_opts}
 meal_labels = list(meal_label_to_code.keys()) if meal_label_to_code else ["Menù unico"]
@@ -244,11 +232,8 @@ with tab1:
             if current >= int(inv.get("max_guests", 1)):
                 st.error("Hai già raggiunto il numero massimo di persone per questo invito.")
             else:
-                supabase.table("guests").insert({
-                    "invite_id": inv["id"],
-                    "full_name": new_name.strip(),
-                    "is_child": False
-                }).execute()
+                data_store.add_guest(invite_id=inv["id"], full_name=new_name.strip(), is_child=False)
+                data_store.refresh_cache()
                 st.success("Accompagnatore aggiunto ✅ Ricarico invito…")
                 reload_bundle()
                 st.rerun()
@@ -259,7 +244,8 @@ with tab1:
     with c1:
         if st.button("Salva", type="primary"):
             for row in updated_rows:
-                supabase.table("rsvps").upsert(row, on_conflict="guest_id").execute()
+                data_store.upsert_rsvp(row)
+            data_store.refresh_cache()
             st.success("RSVP salvata ✅")
             reload_bundle()
             st.rerun()
@@ -267,7 +253,8 @@ with tab1:
     with c2:
         if st.button("Salva e mostra il riepilogo"):
             for row in updated_rows:
-                supabase.table("rsvps").upsert(row, on_conflict="guest_id").execute()
+                data_store.upsert_rsvp(row)
+            data_store.refresh_cache()
             st.success("Salvato ✅")
             reload_bundle()
             st.session_state.go_summary = True
